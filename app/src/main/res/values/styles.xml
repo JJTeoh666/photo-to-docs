@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Base.Theme.PhotoToDocs" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F6F5EF</item>
+        <item name="android:navigationBarColor">#203D34</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="Theme.PhotoToDocs" parent="Base.Theme.PhotoToDocs" />
+</resources>

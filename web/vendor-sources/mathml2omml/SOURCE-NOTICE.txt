@@ -1,0 +1,13 @@
+Corresponding source for mathml2omml 0.5.0, published from upstream commit:
+0ddeb8b59ff1a97796b25d8f682dfb410febde1d
+https://github.com/fiduswriter/mathml2omml/tree/0ddeb8b59ff1a97796b25d8f682dfb410febde1d
+
+The source in src/ and rollup.config.js is unmodified upstream source. dist/ is
+the published npm package's readable JavaScript and sourcemaps. LICENSE covers
+the component. The application wrapper lives in ../../src/math.js.
+
+To rebuild the upstream library: install its package.json development
+dependencies and run npm run transpile. To use that local build in this app,
+replace web/node_modules/mathml2omml/dist with the rebuilt dist, then run
+npm run build from web/. The application's equation wrapper deliberately uses
+disableDecode:true to preserve XML entities and rejects unsupported MathML.
