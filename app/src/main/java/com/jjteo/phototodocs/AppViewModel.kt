@@ -18,6 +18,10 @@ import com.jjteo.phototodocs.data.PhotoFiles
 import com.jjteo.phototodocs.data.PhotoPage
 import com.jjteo.phototodocs.documents.DocumentExporter
 import com.jjteo.phototodocs.documents.convertEquations
+import com.jjteo.phototodocs.updates.AppVersion
+import com.jjteo.phototodocs.updates.GitHubUpdates
+import com.jjteo.phototodocs.updates.UpdateStatus
+import com.jjteo.phototodocs.updates.UpdateUiState
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -53,6 +57,7 @@ data class AppUiState(
     val error: String? = null,
     val notice: String? = null,
     val model: ModelStatus = ModelStatus(),
+    val updates: UpdateUiState = UpdateUiState(BuildConfig.VERSION_NAME),
 )
 
 class AppViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
@@ -70,6 +75,7 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
     private val undoHistory = mutableMapOf<String, ArrayDeque<String>>()
     private var task: Job? = null
     private var modelJob: Job? = null
+    private var updateJob: Job? = null
     private var pendingImports = 0
 
     init {
@@ -323,6 +329,36 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
             catch (_: CancellationException) { }
             catch (e: Exception) { notifyError("Model download failed: ${e.message}. You can resume it from Local AI setup.") }
         }
+    }
+
+    fun checkForUpdates() {
+        if (updateJob?.isActive == true) return
+        _state.update { it.copy(updates = it.updates.copy(status = UpdateStatus.CHECKING, message = null)) }
+        updateJob = viewModelScope.launch {
+            try {
+                val (release, newer) = withContext(Dispatchers.IO) { GitHubUpdates().check(BuildConfig.VERSION_NAME) }
+                val message = when {
+                    newer -> "Version ${release.tag} is available. Open the release to download the APK."
+                    release.version == AppVersion.parse(BuildConfig.VERSION_NAME) -> "You're up to date."
+                    else -> "Your installed build is newer than the latest published release."
+                }
+                _state.update { it.copy(updates = it.updates.copy(
+                    status = if (newer) UpdateStatus.AVAILABLE else UpdateStatus.CURRENT,
+                    message = message, latestVersion = release.tag, releaseUrl = release.url,
+                )) }
+            } catch (_: CancellationException) {
+                _state.update { it.copy(updates = it.updates.copy(status = UpdateStatus.IDLE, message = null)) }
+            } catch (e: Exception) {
+                _state.update { it.copy(updates = it.updates.copy(status = UpdateStatus.ERROR,
+                    message = e.message ?: "Could not check for updates. Check your connection and try again.")) }
+            }
+        }
+    }
+
+    fun openUpdatePage() {
+        try {
+            app.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(_state.value.updates.releaseUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) { notifyError("A browser could not be opened. Visit github.com/JJTeoh666/photo-to-docs/releases to download updates.") }
     }
     fun cancelModelDownload() { ai.cancelDownload(); modelJob?.cancel() }
     fun deleteModel() {

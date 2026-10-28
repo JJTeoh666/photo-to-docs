@@ -1,4 +1,4 @@
-# Verification — PhotoToDocs 1.0.0
+# Verification — PhotoToDocs 1.0.1
 
 Checked on 28 October 2026. The installable development APK is in `dist/PhotoToDocs-debug.apk`.
 
@@ -7,9 +7,11 @@ Checked on 28 October 2026. The installable development APK is in `dist/PhotoToD
 | Check | Result |
 | --- | --- |
 | Android debug APK and instrumentation APK | Build passed |
-| Kotlin/JVM unit tests | 23 passed |
+| Kotlin/JVM unit tests | 31 passed |
 | Offline equation-conversion Node tests | 14 passed |
-| Android emulator instrumentation | 6 passed |
+| Android emulator instrumentation | 11 passed |
+| Public GitHub update check | Live check on the emulator read the public release without credentials |
+| APK update signing | v1.0.1 signature verified and matched the v1.0.0 signer |
 | Android lint | 0 errors; remaining warnings concern pinned dependency versions, the ARM64-only target, and minor style suggestions |
 | Actual Microsoft Word compatibility | Opened app-generated DOCX, edited text/equation formatting, saved, reopened; all 7 equation objects and their text survived |
 | Actual LaTeX compilation | Representative app-generated `.tex` compiled successfully with pdfLaTeX |
@@ -17,15 +19,18 @@ Checked on 28 October 2026. The installable development APK is in `dist/PhotoToD
 
 The emulator was the installed Medium Phone API 36.1 image (x86_64 with ARM64 translation), run in read-only mode. The shipped ARM64 APK was installed and launched successfully.
 
-The six emulator tests cover:
+The eleven emulator tests cover:
 
 - Actual bundled WebView equation conversion and invalid-equation fallback.
 - Representative native exports with fractions, radicals, powers, integrals/sums, matrices, aligned equations, and editable tables.
 - Source editing, preview, disk autosave, reopening, and activity recreation.
 - Undo and missing-model guidance while preserving manual editing.
 - A generated printed photo imported through the app, cropped, rotated, recognized by bundled ML Kit, reviewed as a proposal, accepted, and persisted to disk. Its uncropped original stayed unchanged.
+- Settings navigation, installed-version display, Check for updates, busy-state duplicate prevention, available-update download actions, and retry/browser actions after failure.
 
 Unit tests also cover stale AI proposals, atomic JSON persistence, delayed saves, damaged note recovery, XML/LaTeX escaping, malformed formulas, model HTTP range validation, incomplete AI output, and editing input limits.
+
+Update tests cover numeric version comparison (including 1.10 versus 1.9), equal/older releases, draft/incomplete releases, unexpected links, offline errors, bad JSON, and GitHub rate limits. Version 1.0.1 reran the Android build, all unit/emulator tests, Node conversion tests, and lint. The Word/LaTeX compatibility checks below were performed on the unchanged export pipeline when v1.0.0 was built.
 
 A real Word round trip caught an upstream converter bug that discarded an equality sign. The app now normalizes Word equation runs, validates symbol preservation, creates growing matrix delimiters, and retains unsupported math as visible editable TeX. Regression tests and the final Word round trip pass.
 
@@ -35,7 +40,7 @@ A real Word round trip caught an upstream converter bug that discarded an equali
 
 The Gemma model weights were **not downloaded or executed during development**. The app uses the real LiteRT-LM SDK, but model accuracy, generation speed, peak RAM use, and GPU/CPU fallback still require testing on your particular ARM64 phone. No physical phone was connected.
 
-On first use, install the APK, download/import the pinned 2.59 GB model in AI setup, and try a clear photo with one simple equation. Then try a short selected-text AI edit. Review both suggestions before accepting them. After installation, turn off the network to confirm the complete local workflow on your device.
+On first use, install the APK, download/import the pinned 2.59 GB model in Settings → Local AI setup, and try a clear photo with one simple equation. Then try a short selected-text AI edit. Review both suggestions before accepting them. After installation, turn off the network to confirm the complete local workflow on your device.
 
 Camera capture through your installed camera app, external file-picker destinations, and Android's share sheet should also receive a quick device check. Emulator tests exercise actual photo processing and native exports but do not control third-party camera/storage apps.
 

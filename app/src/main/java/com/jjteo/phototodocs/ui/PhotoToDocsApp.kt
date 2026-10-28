@@ -49,6 +49,7 @@ import com.jjteo.phototodocs.data.NoteDocument
 import com.jjteo.phototodocs.data.PhotoFiles
 import com.jjteo.phototodocs.data.PhotoPage
 import com.jjteo.phototodocs.documents.DocumentPreview
+import com.jjteo.phototodocs.updates.UpdateUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -119,6 +120,9 @@ fun PhotoToDocsApp(vm: AppViewModel) {
                 when {
                     settings -> SettingsScreen(
                         model = state.model,
+                        updates = state.updates,
+                        onCheckUpdates = vm::checkForUpdates,
+                        onOpenUpdates = vm::openUpdatePage,
                         onBack = { settings = false },
                         onDownload = vm::downloadModel,
                         onCancelDownload = vm::cancelModelDownload,
@@ -188,7 +192,7 @@ private fun LibraryScreen(
                 Text("PHOTOTODOCS", letterSpacing = 2.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, color = Ink)
                 Text("Your study, editable.", fontFamily = FontFamily.Serif, fontSize = 28.sp, color = Ink)
             }
-            TextButton(onClick = onSettings) { Text("AI setup") }
+            TextButton(onClick = onSettings) { Text("Settings") }
         }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 22.dp, end = 22.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
             item {
@@ -432,13 +436,15 @@ private fun PhotosPanel(
 
 @Composable
 private fun SettingsScreen(
-    model: ModelStatus, onBack: () -> Unit, onDownload: () -> Unit,
+    model: ModelStatus, updates: UpdateUiState, onCheckUpdates: () -> Unit, onOpenUpdates: () -> Unit,
+    onBack: () -> Unit, onDownload: () -> Unit,
     onCancelDownload: () -> Unit, onDelete: () -> Unit, onImport: () -> Unit
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
         TextButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) { Text("‹ Back") }
-        Text("Your private\nstudy assistant.", fontFamily = FontFamily.Serif, fontSize = 34.sp, lineHeight = 39.sp, color = Ink, modifier = Modifier.padding(top = 18.dp))
+        Text("Settings", fontFamily = FontFamily.Serif, fontSize = 34.sp, lineHeight = 39.sp, color = Ink, modifier = Modifier.padding(top = 18.dp, bottom = 22.dp))
+        UpdatesCard(updates, onCheckUpdates, onOpenUpdates)
         Text("LOCAL AI SETUP", style = MaterialTheme.typography.labelSmall, letterSpacing = 2.sp, color = Muted, modifier = Modifier.padding(top = 17.dp, bottom = 22.dp))
         Card(colors = CardDefaults.cardColors(containerColor = Sage), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(22.dp)) {

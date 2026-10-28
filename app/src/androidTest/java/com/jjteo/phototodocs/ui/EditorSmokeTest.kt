@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.jjteo.phototodocs.AppViewModel
+import com.jjteo.phototodocs.BuildConfig
 import com.jjteo.phototodocs.MainActivity
 import com.jjteo.phototodocs.data.DocumentStore
 import java.io.File
@@ -88,6 +89,17 @@ class EditorSmokeTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("document-title").assertTextContains(title)
         compose.onNodeWithTag("document-source").assertTextEquals(source)
+    }
+
+    @Test
+    fun settingsIncludesInstalledVersionAndUpdateButton() {
+        compose.waitUntil(15_000) { !viewModel().state.value.loading }
+        compose.runOnIdle { viewModel().closeDocument() }
+        compose.onNodeWithText("Settings").performClick()
+        compose.onNodeWithText("App updates").assertIsDisplayed()
+        compose.onNodeWithText("Installed version ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
+        compose.onNodeWithTag("check-updates-button").assertIsDisplayed()
+        compose.onNodeWithText("‹ Back").performClick()
     }
 
     @Test

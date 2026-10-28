@@ -2,12 +2,12 @@
 
 A personal Android app for turning photographed study notes into documents you can edit yourself or with on-device AI, then export as Word (`.docx`) or LaTeX (`.tex`).
 
-Download the APK and source archive from [GitHub Releases](https://github.com/JJTeoh666/photo-to-docs/releases/latest). This is a private repository; sign in with an account that has access.
+Download the APK and source archive from [GitHub Releases](https://github.com/JJTeoh666/photo-to-docs/releases/latest). The repository and release downloads are public.
 
 ## Install and use
 
 1. Download `PhotoToDocs-debug.apk` from [Releases](https://github.com/JJTeoh666/photo-to-docs/releases/latest), or copy the local `dist/PhotoToDocs-debug.apk` to your Android phone, then open it. Allow installation from that file manager when Android asks. This is a development-signed APK for personal use.
-2. Open **AI setup** and download Gemma 4 E2B, or import the exact model file linked below. The download is about **2.59 GB**. Use Wi-Fi and keep the app open while downloading; interrupted downloads can be resumed. Allow approximately 3 GB of free storage, plus space for your photos.
+2. Open **Settings**, scroll to **Local AI setup**, and download Gemma 4 E2B, or import the exact model file linked below. The download is about **2.59 GB**. Use Wi-Fi and keep the app open while downloading; interrupted downloads can be resumed. Allow approximately 3 GB of free storage, plus space for your photos.
 3. Choose **Take photo** or **Gallery**. On **Photos**, arrange pages and crop or rotate each photo if needed.
 4. Choose **AI: text + math** to transcribe text and equations. **Basic text** works immediately using bundled ML Kit and is intended for printed text; it does not reconstruct mathematical layout.
 5. Review the suggestion and accept it. Compare equations with the uncropped photo. Recognition can make mistakes, especially with handwriting, blur, small symbols, or complex layouts.
@@ -24,6 +24,12 @@ After the model is installed, photo transcription, AI edits, previews, and expor
 - LaTeX exports are standalone `article` documents using `amsmath` and `amssymb`. Compile them in a LaTeX editor. Preview renders document content and equations; it is not a complete TeX page compiler. Arbitrary custom packages/macros are outside the supported subset.
 - AI results are proposals. Accept/reject and undo are available. A proposal cannot overwrite text edited while generation was running; rerun it on the current revision instead.
 - This version edits photo-created notes. Importing existing `.docx` / full `.tex` projects and importing external Word changes are not implemented.
+
+## Check for updates
+
+Open **Settings → Check for updates** to compare your installed version with the latest published GitHub release. A newer version shows **Download update**, which opens its release page in your browser. Download the APK and confirm the update in Android. The public release can be checked without a GitHub account or token. Checks run only when you tap the button, and show a retry message if you are offline or GitHub is unavailable.
+
+Install updates over the existing app rather than uninstalling it to keep notes and the downloaded model. Published APKs from this workspace use the same development signing key. A build made elsewhere with a different signing key cannot update the existing installation. Update checking follows [GitHub's latest-release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release).
 
 ## Local model
 

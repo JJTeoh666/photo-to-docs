@@ -36,7 +36,7 @@ foreach ($name in @('sample.docx','sample.tex','sample-source.md')) {
 }
 $screenshots = Join-Path $dist 'screenshots'
 New-Item -ItemType Directory -Force -Path $screenshots | Out-Null
-foreach ($name in @('library.png','editor.png','preview.png')) {
+foreach ($name in @('library.png','editor.png','preview.png','settings.png')) {
     $file = Join-Path $PSScriptRoot "verification\$name"
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $screenshots }
 }
