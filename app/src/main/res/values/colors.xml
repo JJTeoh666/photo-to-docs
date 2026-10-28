@@ -1,0 +1,4 @@
+<resources>
+    <color name="app_canvas">#F4F8FC</color>
+    <bool name="light_system_bars">true</bool>
+</resources>

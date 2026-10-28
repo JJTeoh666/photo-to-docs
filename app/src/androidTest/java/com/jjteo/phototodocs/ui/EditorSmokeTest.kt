@@ -3,15 +3,24 @@ package com.jjteo.phototodocs.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.webkit.WebView
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,6 +31,7 @@ import com.jjteo.phototodocs.MainActivity
 import com.jjteo.phototodocs.data.DocumentStore
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,13 +52,20 @@ class EditorSmokeTest {
 
     private fun viewModel(): AppViewModel = ViewModelProvider(compose.activity)[AppViewModel::class.java]
 
-    private fun createNote(): String {
+    private fun createNote(title: String = "Physics notes ${UUID.randomUUID().toString().take(6)}"): String {
         compose.waitUntil(15_000) { !viewModel().state.value.loading }
         compose.runOnIdle { viewModel().closeDocument() }
-        compose.onNodeWithText("+ New note").performClick()
-        val title = "UI smoke ${UUID.randomUUID()}"
-        compose.onNodeWithTag("document-title").performTextReplacement(title)
+        compose.onNodeWithTag("document-library").performScrollToNode(hasTestTag("new-document"))
+        compose.onNodeWithTag("new-document").performClick()
         compose.runOnIdle { createdIds += viewModel().state.value.current!!.id }
+        if (compose.onAllNodesWithTag("document-title").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithContentDescription("Rename document").performClick()
+        }
+        compose.onNodeWithTag("document-title").performTextReplacement(title)
+        if (compose.onAllNodesWithText("Done").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Done").performClick()
+        }
+        hideKeyboard()
         return title
     }
 
@@ -71,7 +88,7 @@ class EditorSmokeTest {
         saveScreenshot("editor.png")
         compose.onNodeWithText("Preview", useUnmergedTree = false).performClick()
         compose.onNodeWithTag("document-preview").assertIsDisplayed()
-        SystemClock.sleep(1_000) // Visual artifact only; assertions do not depend on this delay.
+        waitForRenderedPreview()
         saveScreenshot("preview.png")
         compose.onNodeWithText("Edit", useUnmergedTree = false).performClick()
         compose.onNodeWithTag("document-source").assertTextEquals(source)
@@ -81,7 +98,8 @@ class EditorSmokeTest {
             DocumentStore(File(compose.activity.filesDir, "documents")).load()
                 .any { it.id in createdIds && it.title == title && it.source == source }
         }
-        compose.onNodeWithText("‹ Library").performClick()
+        compose.onNodeWithContentDescription("Library").performClick()
+        compose.onNodeWithTag("document-library").performScrollToNode(hasText(title))
         compose.onNodeWithText(title).assertIsDisplayed().performClick()
         compose.onNodeWithTag("document-source").assertTextEquals(source)
 
@@ -99,7 +117,7 @@ class EditorSmokeTest {
         compose.onNodeWithText("App updates").assertIsDisplayed()
         compose.onNodeWithText("Installed version ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
         compose.onNodeWithTag("check-updates-button").assertIsDisplayed()
-        compose.onNodeWithText("‹ Back").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
     }
 
     @Test
@@ -117,14 +135,34 @@ class EditorSmokeTest {
     }
 
     @Test
+    fun nativeTypingKeepsEveryCharacter() {
+        createNote()
+        val noteId = viewModel().state.value.current!!.id
+        val expected = "rapid typing 12345"
+        compose.onNodeWithTag("document-source").performTextReplacement("")
+        compose.onNodeWithTag("document-source").performClick()
+        compose.waitForIdle()
+
+        // Native key events exercise rapid incremental input rather than one semantic replacement.
+        InstrumentationRegistry.getInstrumentation().sendStringSync(expected)
+
+        compose.waitUntil(10_000) { viewModel().state.value.current?.source == expected }
+        compose.onNodeWithTag("document-source").assertTextEquals(expected)
+        compose.waitUntil(10_000) {
+            DocumentStore(File(compose.activity.filesDir, "documents")).load()
+                .any { it.id == noteId && it.source == expected }
+        }
+    }
+
+    @Test
     fun missingLocalModelShowsSetupAndManualEditingStillWorks() {
         compose.waitUntil(15_000) { !viewModel().state.value.loading }
         assumeFalse("This test never removes an existing local model", viewModel().state.value.model.installed)
         createNote()
         val source = "A note I can edit without AI."
         compose.onNodeWithTag("document-source").performTextReplacement(source)
-        compose.onNodeWithText("✦ AI").performClick()
-        compose.onNodeWithText("Download the local AI model in AI setup first.").assertIsDisplayed()
+        compose.onNodeWithTag("ai-edit").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Set up local AI in Settings to suggest changes.").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
 
         // Exercise the ViewModel's defensive guard as well as the UI's setup route.
@@ -141,7 +179,75 @@ class EditorSmokeTest {
         }
     }
 
-    private fun saveScreenshot(name: String) {
+    @Test
+    fun searchFindsTitlesAndSourceAndTabsPreserveEdits() {
+        val suffix = UUID.randomUUID().toString().take(8)
+        val firstTitle = createNote("Mechanics $suffix")
+        val marker = "conservation-$suffix"
+        val source = "# Mechanics\n\nEnergy is conserved. Search marker: $marker\n\n\$E=mc^2\$"
+        compose.onNodeWithTag("document-source").performTextReplacement(source)
+        val secondTitle = createNote("Algebra $suffix")
+        compose.onNodeWithTag("document-source").performTextReplacement("Quadratic equations and polynomial notes.")
+        hideKeyboard()
+        compose.onNodeWithContentDescription("Library").performClick()
+
+        fun search(query: String) {
+            compose.onNodeWithTag("document-library").performScrollToNode(hasTestTag("document-search"))
+            compose.onNodeWithTag("document-search").performTextReplacement(query)
+            hideKeyboard()
+        }
+        search(secondTitle)
+        val secondResult = hasText(secondTitle) and !hasTestTag("document-search")
+        compose.onNodeWithTag("document-library").performScrollToNode(secondResult)
+        compose.onNode(secondResult).assertIsDisplayed()
+
+        search("no-result-$suffix")
+        compose.onNodeWithTag("document-library").performScrollToNode(hasText("No matching documents"))
+        compose.onNodeWithText("No matching documents").assertIsDisplayed()
+
+        search(marker)
+        val firstResult = hasText(firstTitle) and !hasTestTag("document-search")
+        compose.onNodeWithTag("document-library").performScrollToNode(firstResult)
+        compose.onNode(firstResult).assertIsDisplayed().performClick()
+        compose.onNodeWithText("Edit").assertIsSelected()
+        compose.onNodeWithText("Preview").performClick().assertIsSelected()
+        compose.onNodeWithTag("document-preview").assertIsDisplayed()
+        compose.onNodeWithText("Photos").performClick().assertIsSelected()
+        compose.onNodeWithText("Edit").performClick().assertIsSelected()
+        compose.onNodeWithTag("document-source").assertTextEquals(source)
+    }
+
+    private fun waitForRenderedPreview() {
+        val ready = AtomicReference(false)
+        val renderedPhysics = """
+            (() => {
+                const page = document.getElementById('document');
+                return !!page && page.innerText.includes('Physics notes') &&
+                    !!page.querySelector('.katex-mathml math') &&
+                    !!page.querySelector('.katex-html') &&
+                    document.fonts.status === 'loaded';
+            })()
+        """.trimIndent()
+        compose.waitUntil(15_000) {
+            compose.runOnIdle {
+                findWebView(compose.activity.findViewById(android.R.id.content))
+                    ?.evaluateJavascript(renderedPhysics) { ready.set(it == "true") }
+            }
+            ready.get()
+        }
+    }
+
+    private fun findWebView(view: View): WebView? {
+        if (view is WebView) return view
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                findWebView(view.getChildAt(index))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun hideKeyboard() {
         compose.runOnIdle {
             val activity = compose.activity
             val keyboard = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -149,6 +255,10 @@ class EditorSmokeTest {
             activity.currentFocus?.clearFocus()
         }
         compose.waitForIdle()
+    }
+
+    private fun saveScreenshot(name: String) {
+        hideKeyboard()
         SystemClock.sleep(300)
         val screenshot = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         try {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PhotoToDocs" parent="Base.Theme.PhotoToDocs">
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:navigationBarColor">#F6F5EF</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
+        <item name="android:navigationBarColor">@color/app_canvas</item>
     </style>
 </resources>

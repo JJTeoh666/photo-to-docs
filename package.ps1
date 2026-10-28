@@ -11,7 +11,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD_PARTY_NOTICES.md') -Desti
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'RELEASE_NOTES.md') -Destination $dist
 
 # Only include an explicit source allow-list. Never package keys, caches or local configuration.
-$sourceFolders = @('app\src', 'gradle', 'web\src', 'web\test', 'web\vendor-sources')
+$sourceFolders = @('app\src', 'gradle', 'web\src', 'web\test', 'web\vendor-sources', 'design-system')
 $sourceFiles = @('.gitignore','.gitattributes','settings.gradle.kts','build.gradle.kts','gradle.properties','gradlew','gradlew.bat',
     'app\build.gradle.kts','build.ps1','package.ps1','README.md','VERIFICATION.md','THIRD_PARTY_NOTICES.md','RELEASE_NOTES.md',
     'web\.gitignore','web\package.json','web\package-lock.json','web\build.mjs')
@@ -36,7 +36,7 @@ foreach ($name in @('sample.docx','sample.tex','sample-source.md')) {
 }
 $screenshots = Join-Path $dist 'screenshots'
 New-Item -ItemType Directory -Force -Path $screenshots | Out-Null
-foreach ($name in @('library.png','editor.png','preview.png','settings.png')) {
+foreach ($name in @('library.png','editor.png','preview.png','settings.png','library-ocean.png','library-graphite.png','settings-ocean.png','settings-graphite.png','preview-graphite.png')) {
     $file = Join-Path $PSScriptRoot "verification\$name"
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $screenshots }
 }

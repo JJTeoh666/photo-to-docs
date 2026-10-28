@@ -2,19 +2,25 @@
 
 A personal Android app for turning photographed study notes into documents you can edit yourself or with on-device AI, then export as Word (`.docx`) or LaTeX (`.tex`).
 
+Version 1.1.0 adds the redesigned document workspace, Ocean light and Graphite dark themes, and a saved Appearance setting.
+
 Download the APK and source archive from [GitHub Releases](https://github.com/JJTeoh666/photo-to-docs/releases/latest). The repository and release downloads are public.
 
 ## Install and use
 
 1. Download `PhotoToDocs-debug.apk` from [Releases](https://github.com/JJTeoh666/photo-to-docs/releases/latest), or copy the local `dist/PhotoToDocs-debug.apk` to your Android phone, then open it. Allow installation from that file manager when Android asks. This is a development-signed APK for personal use.
-2. Open **Settings**, scroll to **Local AI setup**, and download Gemma 4 E2B, or import the exact model file linked below. The download is about **2.59 GB**. Use Wi-Fi and keep the app open while downloading; interrupted downloads can be resumed. Allow approximately 3 GB of free storage, plus space for your photos.
+2. Open **Settings**, scroll to **Local AI**, and download Gemma 4 E2B, or import the exact model file linked below. The download is about **2.59 GB**. Use Wi-Fi and keep the app open while downloading; interrupted downloads can be resumed. Allow approximately 3 GB of free storage, plus space for your photos.
 3. Choose **Take photo** or **Gallery**. On **Photos**, arrange pages and crop or rotate each photo if needed.
 4. Choose **AI: text + math** to transcribe text and equations. **Basic text** works immediately using bundled ML Kit and is intended for printed text; it does not reconstruct mathematical layout.
 5. Review the suggestion and accept it. Compare equations with the uncropped photo. Recognition can make mistakes, especially with handwriting, blur, small symbols, or complex layouts.
-6. Use **Edit** for Markdown and LaTeX source and **Preview** to see formatted text and equations. Notes save automatically to the phone. Select a passage before requesting an AI edit, or edit the whole note. Each request currently accepts up to 4,000 source characters and an 800-character instruction.
+6. Use **AI edit** to request changes. Use **Edit** for Markdown and LaTeX source and **Preview** to see formatted text and equations. Notes save automatically to the phone. Select a passage before requesting an AI edit, or edit the whole note. Each request currently accepts up to 4,000 source characters and an 800-character instruction.
 7. Save or share **Word** and **LaTeX** from the export menu. You can reopen your saved notes in the app and continue editing them.
 
 After the model is installed, photo transcription, AI edits, previews, and exports work offline. There is no API key or login. This build targets 64-bit ARM phones with Android 8 or newer; 8 GB or more RAM is recommended. Actual speed and memory use depend on your phone. A GPU failure triggers a CPU retry. If the model cannot load, basic OCR, manual editing, and exports remain available.
+
+## Interface
+
+The document workspace uses bundled Manrope typography and labeled outline controls. **Settings → Appearance** offers **Light** (Ocean, blue to teal), **Dark** (Graphite, slate and teal), and **System** (follow the phone). The choice applies immediately and stays saved after restarting the app. Capture panels and AI preview actions use the selected gradient; notes and document previews use readable solid surfaces. Search saved notes by title or content. AI edit and Export stay beside the editor navigation; Edit, Preview, and Photos use clear selected tabs. A compact toolbar preserves editing room with the keyboard open and in landscape. On short displays, Document views and formatting opens the tabs and editing actions from one menu. When a landscape keyboard leaves very little room, the editor focuses on your text; hiding the keyboard restores the controls.
 
 ## Editing and exports
 
@@ -42,7 +48,7 @@ Artifact: [`litert-community/gemma-4-E2B-it-litert-lm`](https://huggingface.co/l
 - SHA-256: `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`
 - [Pinned download](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/1caa527c1e88b55f046fcd8d2b4265606680663d/gemma-4-E2B-it.litertlm)
 
-The app checks size and SHA-256 before installation. Downloads resume into a `.part` file with validated HTTP range responses. Model weights are not included in the source or APK. You can remove the model from AI setup independently of your notes.
+The app checks size and SHA-256 before installation. Downloads resume into a `.part` file with validated HTTP range responses. Model weights are not included in the source or APK. You can remove the model from Settings independently of your notes.
 
 Photos, note content, and inference stay on the phone; this app does not send them to an AI service. Storage is app-private and Android cloud backup is disabled. Uninstalling the app removes its notes and model, so save exports you need to keep.
 

@@ -6,14 +6,16 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="stylesheet" href="katex.min.css">
   <style>
-    :root { color-scheme: light; font: 16px/1.65 sans-serif; color: #1e293b; background: #fff; }
-    body { margin: 0; padding: 18px; overflow-wrap: anywhere; }
-    h1,h2,h3,h4,h5,h6 { color:#0f172a; line-height:1.3; margin:1.2em 0 .45em; }
+    :root { --sheet:#fff; --ink:#182238; --muted:#536078; --line:#d6deed; --soft:#ebeff7; --warning:#b42335; --warning-bg:#ffe9ec; font:16px/1.7 Georgia, 'Noto Serif', serif; color:var(--ink); background:var(--sheet); }
+    body { margin: 0; padding: 24px; overflow-wrap: anywhere; }
+    main { max-width:65ch; margin:0 auto; }
+    h1,h2,h3,h4,h5,h6 { color:var(--ink); line-height:1.3; margin:1.2em 0 .45em; }
+    main > :first-child { margin-top:0; }
     h1 {font-size:1.65rem} h2 {font-size:1.35rem} h3 {font-size:1.15rem}
     p { margin:.6em 0 1em; white-space:pre-wrap; }
     .equation {overflow-x:auto; padding:.25em 0; margin:.5em 0}
-    .math-error { color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:4px 6px; white-space:pre-wrap; font-family:monospace; }
-    .empty {color:#64748b} table {border-collapse:collapse; margin:1em 0; width:100%} th,td {border:1px solid #cbd5e1; padding:8px; text-align:left; vertical-align:top} th{background:#f1f5f9}
+    .math-error { color:var(--warning); background:var(--warning-bg); border:1px solid var(--warning); border-radius:6px; padding:4px 6px; white-space:pre-wrap; font-family:monospace; }
+    .empty {color:var(--muted)} table {border-collapse:collapse; margin:1em 0; width:100%} th,td {border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top} th{background:var(--soft)}
     ul,ol {padding-left:1.6em} li {margin:.25em 0}
   </style>
   <script defer src="preview.js"></script>

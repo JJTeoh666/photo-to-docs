@@ -10,6 +10,7 @@ The app includes these open-source components. Versions are pinned in the Gradle
 | KaTeX 0.19.1 | MIT | Offline equation preview and MathML generation |
 | mathml2omml 0.5.0 | LGPL-3.0-or-later | MathML to editable Office Math conversion |
 | @xmldom/xmldom 0.9.12 | MIT | Validate and normalize equation XML before Word export |
+| Manrope | SIL Open Font License 1.1 | Bundled offline interface typeface; license in app assets |
 
 KaTeX and mathml2omml notices are packaged in `app/src/main/assets/licenses/`. The corresponding mathml2omml source, published build metadata, and license are supplied in `web/vendor-sources/mathml2omml/`, including the upstream source files used to produce the published package. The application's use of this library is in `web/src/preview.js`; rebuilding is documented in `web/build.mjs`, `web/package.json`, and the npm lock file.
 

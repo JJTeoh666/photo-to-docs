@@ -13,6 +13,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.jjteo.phototodocs.ai.LocalAi
 import com.jjteo.phototodocs.ai.ModelStatus
 import com.jjteo.phototodocs.data.DocumentStore
+import com.jjteo.phototodocs.data.AppearancePreferences
+import com.jjteo.phototodocs.data.ThemeMode
 import com.jjteo.phototodocs.data.NoteDocument
 import com.jjteo.phototodocs.data.PhotoFiles
 import com.jjteo.phototodocs.data.PhotoPage
@@ -58,13 +60,15 @@ data class AppUiState(
     val notice: String? = null,
     val model: ModelStatus = ModelStatus(),
     val updates: UpdateUiState = UpdateUiState(BuildConfig.VERSION_NAME),
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
 
 class AppViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
     private val app = application
     private val store = DocumentStore(File(app.filesDir, "documents"))
     private val ai = LocalAi(app)
-    private val _state = MutableStateFlow(AppUiState())
+    private val appearance = AppearancePreferences(app)
+    private val _state = MutableStateFlow(AppUiState(themeMode = appearance.read()))
     val state = _state.asStateFlow()
     private val saveQueue = Channel<NoteDocument>(Channel.UNLIMITED)
     // Outlives activity/ViewModel teardown long enough to drain accepted edits to disk.
@@ -105,6 +109,12 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
             }
             } finally { persistence.cancel() }
         }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        if (_state.value.themeMode == mode) return
+        appearance.write(mode)
+        _state.update { it.copy(themeMode = mode) }
     }
 
     fun createDocument() {

@@ -11,8 +11,8 @@ android {
         applicationId = "com.jjteo.phototodocs"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.1.0"
         ndk { abiFilters += providers.gradleProperty("previewAbi").getOrElse("arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

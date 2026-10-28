@@ -1,17 +1,17 @@
-# Verification — PhotoToDocs 1.0.1
+# Verification — PhotoToDocs 1.1.0
 
-Checked on 28 October 2026. The installable development APK is in `dist/PhotoToDocs-debug.apk`.
+Checked on 28 October 2026. The installable development APK is packaged as `PhotoToDocs-debug.apk` for version 1.1.0.
 
 ## Completed
 
 | Check | Result |
 | --- | --- |
 | Android debug APK and instrumentation APK | Build passed |
-| Kotlin/JVM unit tests | 31 passed |
+| Kotlin/JVM unit tests | 34 passed |
 | Offline equation-conversion Node tests | 14 passed |
-| Android emulator instrumentation | 11 passed |
+| Android emulator instrumentation | 16 passed |
 | Public GitHub update check | Live check on the emulator read the public release without credentials |
-| APK update signing | v1.0.1 signature verified and matched the v1.0.0 signer |
+| APK update signing | v1.1.0 signature verified and matched the v1.0.1 signer |
 | Android lint | 0 errors; remaining warnings concern pinned dependency versions, the ARM64-only target, and minor style suggestions |
 | Actual Microsoft Word compatibility | Opened app-generated DOCX, edited text/equation formatting, saved, reopened; all 7 equation objects and their text survived |
 | Actual LaTeX compilation | Representative app-generated `.tex` compiled successfully with pdfLaTeX |
@@ -19,20 +19,30 @@ Checked on 28 October 2026. The installable development APK is in `dist/PhotoToD
 
 The emulator was the installed Medium Phone API 36.1 image (x86_64 with ARM64 translation), run in read-only mode. The shipped ARM64 APK was installed and launched successfully.
 
-The eleven emulator tests cover:
+The sixteen emulator tests cover:
 
 - Actual bundled WebView equation conversion and invalid-equation fallback.
 - Representative native exports with fractions, radicals, powers, integrals/sums, matrices, aligned equations, and editable tables.
 - Source editing, preview, disk autosave, reopening, and activity recreation.
-- Undo and missing-model guidance while preserving manual editing.
+- Rapid native key input preserving every character in the editor and saved file; undo and missing-model guidance while preserving manual editing.
+- Library search by title and source, empty search results, selected tab semantics, and editing preserved across Preview/Photos/Edit. Preview verification waits for actual visible text, KaTeX output, and loaded fonts.
 - A generated printed photo imported through the app, cropped, rotated, recognized by bundled ML Kit, reviewed as a proposal, accepted, and persisted to disk. Its uncropped original stayed unchanged.
+- Appearance switching to Ocean Light and Graphite Dark, exact rendered canvas colors, saved preference on disk, activity recreation, System behavior, and actual WebView preview recoloring without changing the source.
 - Settings navigation, installed-version display, Check for updates, busy-state duplicate prevention, available-update download actions, and retry/browser actions after failure.
 
 Unit tests also cover stale AI proposals, atomic JSON persistence, delayed saves, damaged note recovery, XML/LaTeX escaping, malformed formulas, model HTTP range validation, incomplete AI output, and editing input limits.
 
-Update tests cover numeric version comparison (including 1.10 versus 1.9), equal/older releases, draft/incomplete releases, unexpected links, offline errors, bad JSON, and GitHub rate limits. Version 1.0.1 reran the Android build, all unit/emulator tests, Node conversion tests, and lint. The Word/LaTeX compatibility checks below were performed on the unchanged export pipeline when v1.0.0 was built.
+Update tests cover numeric version comparison (including 1.10 versus 1.9), equal/older releases, draft/incomplete releases, unexpected links, offline errors, bad JSON, and GitHub rate limits. Version 1.1.0 reran the Android build, all unit/emulator tests, Node conversion tests, and lint. The Word/LaTeX compatibility checks below were performed on the unchanged export pipeline when v1.0.0 was built.
 
 A real Word round trip caught an upstream converter bug that discarded an equality sign. The app now normalizes Word equation runs, validates symbol preservation, creates growing matrix delimiters, and retains unsupported math as visible editable TeX. Regression tests and the final Word round trip pass.
+
+## UI verification
+
+Reviewed the library, editor, rendered preview, and Settings in light and dark themes. Ocean and Graphite foreground/background checks passed the 4.5:1 AA threshold, including text on the gradient endpoints. The selected Figma palettes have minimum checked ratios of 5.02:1 (Ocean) and 5.94:1 (Graphite). Controls use 48dp targets and native selected/disabled semantics; formatting icons have accessible names and Settings details announce expanded/collapsed state.
+
+Checked a 375dp small-phone viewport, the emulator's normal 411dp viewport, and 800dp tablet portrait/landscape layouts. Tested system font scaling at 2.0 and all three Android animation scales at zero. Flow rows wrap actions and text; documents remain reachable by scrolling. In short landscape layouts, views/formatting use a menu. With the keyboard leaving less than 160dp of space, the text editor uses the available area; hiding the keyboard restores the controls. This typing case was checked visually after a toolbar-height issue was found and fixed.
+
+The saved Appearance choice controls the app and Android system bar icon contrast. Preview follows the app theme colors and the system font scale, with a 65-character reading measure. The export pipeline itself is unchanged. Physical TalkBack exploration and phone keyboard variants have not been exhaustively tested.
 
 `dist/examples/` contains files generated by the actual Android export pipeline. `dist/screenshots/` contains development emulator screenshots. Raw build/test logs and visual fixtures are in the ignored `verification/` directory and root `.log` files.
 
@@ -40,7 +50,7 @@ A real Word round trip caught an upstream converter bug that discarded an equali
 
 The Gemma model weights were **not downloaded or executed during development**. The app uses the real LiteRT-LM SDK, but model accuracy, generation speed, peak RAM use, and GPU/CPU fallback still require testing on your particular ARM64 phone. No physical phone was connected.
 
-On first use, install the APK, download/import the pinned 2.59 GB model in Settings → Local AI setup, and try a clear photo with one simple equation. Then try a short selected-text AI edit. Review both suggestions before accepting them. After installation, turn off the network to confirm the complete local workflow on your device.
+On first use, install the APK, download/import the pinned 2.59 GB model in Settings → Local AI, and try a clear photo with one simple equation. Then try a short selected-text AI edit. Review both suggestions before accepting them. After installation, turn off the network to confirm the complete local workflow on your device.
 
 Camera capture through your installed camera app, external file-picker destinations, and Android's share sheet should also receive a quick device check. Emulator tests exercise actual photo processing and native exports but do not control third-party camera/storage apps.
 

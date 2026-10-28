@@ -10,7 +10,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewAssetLoader
 import kotlinx.coroutines.Dispatchers
@@ -27,16 +30,33 @@ import kotlin.coroutines.resumeWithException
 @Composable
 fun DocumentPreview(source: String, modifier: Modifier = Modifier) {
     val payload = remember(source) { previewPayload(source) }
+    val colors = MaterialTheme.colorScheme
+    val background = colors.surface.toArgb()
+    fun css(color: androidx.compose.ui.graphics.Color) = "#%06x".format(color.toArgb() and 0xFFFFFF)
+    val appearance = JSONObject().put("sheet", css(colors.surface)).put("ink", css(colors.onSurface))
+        .put("muted", css(colors.onSurfaceVariant)).put("line", css(colors.outlineVariant))
+        .put("soft", css(colors.surfaceContainer)).put("warning", css(colors.error))
+        .put("warning-bg", css(colors.errorContainer)).toString()
+    val textZoom = (LocalDensity.current.fontScale * 100).toInt().coerceIn(50, 400)
     AndroidView(
         modifier = modifier,
         factory = { context ->
             PreviewWebView(context).apply {
                 documentPayload = payload
+                appearancePayload = appearance
+                setBackgroundColor(background)
+                settings.textZoom = textZoom
                 contentDescription = "Rendered document preview"
                 loadUrl(ASSET_URL)
             }
         },
-        update = { view -> view.documentPayload = payload; view.renderDocument() },
+        update = { view ->
+            view.documentPayload = payload
+            view.appearancePayload = appearance
+            view.setBackgroundColor(background)
+            view.settings.textZoom = textZoom
+            view.renderDocument()
+        },
         onRelease = { view -> view.stopLoading(); view.destroy() },
     )
 }
@@ -97,6 +117,7 @@ suspend fun convertEquations(context: Context, source: String): Map<String, Stri
 
 private class PreviewWebView(context: Context) : WebView(context) {
     var documentPayload = "[]"
+    var appearancePayload = "{}"
     private var ready = false
 
     init {
@@ -115,7 +136,13 @@ private class PreviewWebView(context: Context) : WebView(context) {
     }
 
     fun renderDocument() {
-        if (ready) evaluateJavascript("window.renderNote($documentPayload)", null)
+        if (ready) evaluateJavascript("""
+            (() => {
+                const colors = $appearancePayload;
+                for (const [name, value] of Object.entries(colors)) document.documentElement.style.setProperty('--' + name, value);
+                window.renderNote($documentPayload);
+            })()
+        """.trimIndent(), null)
     }
 }
 
