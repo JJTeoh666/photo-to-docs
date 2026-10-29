@@ -11,8 +11,8 @@ android {
         applicationId = "com.jjteo.phototodocs"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 6
+        versionName = "1.3.0"
         ndk { abiFilters += providers.gradleProperty("previewAbi").getOrElse("arm64-v8a") }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -44,6 +44,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.nimbusds:nimbus-jose-jwt:10.10")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")

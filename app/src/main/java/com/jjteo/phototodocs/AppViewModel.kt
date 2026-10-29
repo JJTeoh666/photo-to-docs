@@ -1,5 +1,6 @@
 package com.jjteo.phototodocs
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -11,7 +12,13 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.jjteo.phototodocs.ai.LocalAi
+import com.jjteo.phototodocs.ai.AiProvider
+import com.jjteo.phototodocs.ai.DocumentAi
+import com.jjteo.phototodocs.ai.AiDocumentText
 import com.jjteo.phototodocs.ai.ModelStatus
+import com.jjteo.phototodocs.chatgpt.ChatGptAi
+import com.jjteo.phototodocs.chatgpt.ChatGptConnection
+import com.jjteo.phototodocs.chatgpt.ChatGptUiState
 import com.jjteo.phototodocs.data.DocumentStore
 import com.jjteo.phototodocs.data.AppearancePreferences
 import com.jjteo.phototodocs.data.ThemeMode
@@ -20,6 +27,7 @@ import com.jjteo.phototodocs.data.PhotoFiles
 import com.jjteo.phototodocs.data.PhotoPage
 import com.jjteo.phototodocs.documents.DocumentExporter
 import com.jjteo.phototodocs.documents.convertEquations
+import com.jjteo.phototodocs.documents.printPdf
 import com.jjteo.phototodocs.updates.AppVersion
 import com.jjteo.phototodocs.updates.GitHubUpdates
 import com.jjteo.phototodocs.updates.UpdateStatus
@@ -36,6 +44,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -57,18 +67,26 @@ data class AppUiState(
     val partial: String = "",
     val proposal: EditProposal? = null,
     val error: String? = null,
-    val notice: String? = null,
     val model: ModelStatus = ModelStatus(),
     val updates: UpdateUiState = UpdateUiState(BuildConfig.VERSION_NAME),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-)
+    val aiProvider: AiProvider = AiProvider.LOCAL,
+    val chatGpt: ChatGptUiState = ChatGptUiState(),
+) {
+    val aiReady: Boolean get() = if (aiProvider == AiProvider.LOCAL) model.installed else chatGpt.ready
+    val aiDisclosure: String get() = if (aiProvider == AiProvider.LOCAL) "Local AI · processed on this phone" else "ChatGPT · submitted photos and text are sent to OpenAI"
+}
 
 class AppViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
     private val app = application
     private val store = DocumentStore(File(app.filesDir, "documents"))
     private val ai = LocalAi(app)
+    private val chatGpt = ChatGptConnection.get(app)
+    private val cloudAi = ChatGptAi(chatGpt)
+    private val aiPreferences = app.getSharedPreferences("ai-provider", android.content.Context.MODE_PRIVATE)
     private val appearance = AppearancePreferences(app)
-    private val _state = MutableStateFlow(AppUiState(themeMode = appearance.read()))
+    private val _state = MutableStateFlow(AppUiState(themeMode = appearance.read(),
+        aiProvider = if (aiPreferences.getString("provider", "LOCAL") == "CHATGPT") AiProvider.CHATGPT else AiProvider.LOCAL))
     val state = _state.asStateFlow()
     private val saveQueue = Channel<NoteDocument>(Channel.UNLIMITED)
     // Outlives activity/ViewModel teardown long enough to drain accepted edits to disk.
@@ -80,9 +98,17 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
     private var task: Job? = null
     private var modelJob: Job? = null
     private var updateJob: Job? = null
+    private var chatJob: Job? = null
+    @Volatile private var taskSerial = 0L
     private var pendingImports = 0
 
     init {
+        viewModelScope.launch { chatGpt.state.collect { value -> _state.update { it.copy(chatGpt = value) } } }
+        viewModelScope.launch {
+            try { chatGpt.initialize() }
+            catch (_: CancellationException) { }
+            catch (e: Exception) { chatGpt.reportFailure(e) }
+        }
         viewModelScope.launch {
             ai.state.collect { model -> _state.update { it.copy(model = model) } }
         }
@@ -91,7 +117,7 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
                 val notes = withContext(Dispatchers.IO) { store.load() }
                 val currentId: String? = saved["documentId"]
                 _state.update { it.copy(documents = notes, current = notes.find { note -> note.id == currentId }, loading = false,
-                    notice = if (store.loadErrors.isNotEmpty()) "Some saved notes could not be read. Their files have been kept for recovery." else null) }
+                    error = if (store.loadErrors.isNotEmpty()) "Some saved notes could not be read. Their files have been kept for recovery." else null) }
             } catch (e: Exception) { notifyError("Could not read the library: ${e.message}"); _state.update { it.copy(loading = false) } }
         }
         persistence.launch {
@@ -115,6 +141,53 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
         if (_state.value.themeMode == mode) return
         appearance.write(mode)
         _state.update { it.copy(themeMode = mode) }
+    }
+
+    fun setAiProvider(provider: AiProvider) {
+        if (_state.value.aiProvider == provider) return
+        cancelTask()
+        aiPreferences.edit().putString("provider", provider.name).apply()
+        _state.update { it.copy(aiProvider = provider, proposal = null) }
+        if (provider == AiProvider.CHATGPT) viewModelScope.launch {
+            try { ai.unloadEngine() } catch (_: CancellationException) { } catch (_: Exception) { notifyError("Local AI could not release its engine. Restart the app to free its memory.") }
+        }
+    }
+    private fun activeAi(): DocumentAi = if (_state.value.aiProvider == AiProvider.LOCAL) ai else cloudAi
+    private fun requireAi(): Boolean {
+        if (_state.value.aiReady) return true
+        notifyError(if (_state.value.aiProvider == AiProvider.LOCAL) "Download or import the local model in Local AI setup first. Basic printed-text extraction is available immediately."
+            else "Connect ChatGPT, enable plan use, and choose a model in Settings first.")
+        return false
+    }
+    private fun chatAction(block: suspend () -> Unit) {
+        if (chatJob?.isCompleted == false) return
+        chatGpt.setWorking(true)
+        chatJob = viewModelScope.launch {
+            try { chatGpt.initialize(); block() }
+            catch (_: CancellationException) { chatGpt.cancelled() }
+            catch (e: Exception) { if (currentCoroutineContext().isActive) chatGpt.reportFailure(e) else chatGpt.cancelled() }
+            finally { chatGpt.setWorking(false) }
+        }
+    }
+    fun signInChatGpt(addAccount: Boolean = false) {
+        cancelTask()
+        _state.update { it.copy(proposal = null) }
+        chatAction {
+            val id = if (addAccount) null else _state.value.chatGpt.selectedId
+            chatGpt.signIn(id) { url ->
+                app.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
+    }
+    fun cancelChatGpt() { chatJob?.cancel(); chatGpt.cancelSignIn() }
+    fun loadChatGptModels() = chatAction { chatGpt.loadModels() }
+    fun selectChatGptAccount(id: String) { cancelTask(); _state.update { it.copy(proposal = null) }; chatAction { chatGpt.selectAccount(id) } }
+    fun selectChatGptModel(slug: String) { cancelTask(); _state.update { it.copy(proposal = null) }; chatAction { chatGpt.selectModel(slug) } }
+    fun testChatGpt() = chatAction { chatGpt.testConnection() }
+    fun disconnectChatGpt() { cancelTask(); _state.update { it.copy(proposal = null) }; chatAction { chatGpt.disconnect() } }
+    fun manageChatGptUsage() {
+        try { app.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://chatgpt.com/settings/usage")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (_: Exception) { notifyError("Open ChatGPT Settings → Usage in your browser to manage app access and usage.") }
     }
 
     fun createDocument() {
@@ -201,7 +274,7 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
             } catch (e: Exception) { notifyError("Could not import photo: ${e.message}") }
             finally {
                 pendingImports--
-                if (pendingImports == 0) _state.update { it.copy(busy = false, busyLabel = "", notice = "Photos saved. Crop or rotate them, then choose text extraction or AI transcription.") }
+                if (pendingImports == 0) _state.update { it.copy(busy = false, busyLabel = "") }
             }
         }
     }
@@ -270,12 +343,15 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
     }
 
     private fun transcribe(note: NoteDocument, pages: List<PhotoPage>, basicOnly: Boolean) {
-        if (!basicOnly && !_state.value.model.installed) { notifyError("Download or import Gemma in Local AI setup first. Basic printed-text extraction is available immediately."); return }
-        runTask(if (basicOnly) "Extracting printed text…" else "Reading text and equations…") {
+        if (!basicOnly && !requireAi()) return
+        val provider = _state.value.aiProvider
+        val engine = activeAi()
+        runTask(if (basicOnly) "Extracting printed text…" else "${provider.label}: reading text and equations…", if (basicOnly) null else provider) {
+            val generation = taskSerial
             val texts = mutableListOf<String>()
             pages.forEachIndexed { index, page ->
                 _state.update { it.copy(busyLabel = "Reading page ${index + 1} of ${pages.size}…") }
-                val ocr = if (basicOnly) recognize(page) else runCatching { recognize(page) }.getOrDefault("")
+                val ocr = if (basicOnly) recognize(page) else try { recognize(page) } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { "" }
                 val text = if (basicOnly) ocr else {
                     // The original stays untouched; vision input is capped to keep memory bounded.
                     val visionFile = withContext(Dispatchers.IO) {
@@ -285,7 +361,7 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
                         finally { bitmap.recycle() }
                         temp
                     }
-                    try { ai.transcribe(visionFile, ocr) { partial -> _state.update { it.copy(partial = partial) } } }
+                    try { engine.transcribe(visionFile, ocr) { partial -> _state.update { if (generation == taskSerial) it.copy(partial = partial) else it } } }
                     finally { visionFile.delete() }
                 }
                 require(text.isNotBlank()) { "No readable text found on page ${index + 1}. Try a clearer photo or a tighter crop." }
@@ -307,13 +383,18 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
     fun requestEdit(instruction: String, start: Int = 0, end: Int = -1) {
         val note = _state.value.current ?: return
         if (instruction.isBlank()) { notifyError("Describe the change you want."); return }
-        if (!_state.value.model.installed) { notifyError("Download or import the local model in Local AI setup first."); return }
+        if (!requireAi()) return
         val actualStart = start.coerceIn(0, note.source.length)
         val actualEnd = (if (end < 0) note.source.length else end).coerceIn(actualStart, note.source.length)
         val oldText = note.source.substring(actualStart, actualEnd)
         if (oldText.isBlank()) { notifyError("Write or transcribe some text first."); return }
-        runTask("Preparing your AI suggestion…") {
-            val result = ai.revise(oldText, instruction.trim()) { partial -> _state.update { it.copy(partial = partial) } }
+        try { AiDocumentText.checkRevisionInput(oldText, instruction.trim()) }
+        catch (invalid: IllegalArgumentException) { notifyError(invalid.message ?: "Use a smaller selection or shorter instruction."); return }
+        val provider = _state.value.aiProvider
+        val engine = activeAi()
+        runTask("${provider.label}: preparing your suggestion…", provider) {
+            val generation = taskSerial
+            val result = engine.revise(oldText, instruction.trim()) { partial -> _state.update { if (generation == taskSerial) it.copy(partial = partial) else it } }
             require(result.isNotBlank()) { "The model returned an empty suggestion. Your note has been preserved." }
             _state.update { it.copy(proposal = EditProposal(note.id, note.revision, oldText, result, actualStart, actualEnd, instruction.trim())) }
         }
@@ -328,7 +409,7 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
             return
         }
         updateSource(result)
-        _state.update { it.copy(proposal = null, notice = "Changes applied. Undo is available in the editor.") }
+        _state.update { it.copy(proposal = null) }
     }
     fun rejectProposal() { _state.update { it.copy(proposal = null) } }
 
@@ -384,6 +465,11 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
         }
     }
 
+    fun exportPdf(activity: Activity) {
+        val note = _state.value.current ?: return
+        runTask("Preparing PDF…") { printPdf(activity, note.title, note.source) }
+    }
+
     fun export(format: ExportFormat, uri: Uri) {
         val note = _state.value.current ?: return
         runTask("Creating ${format.extension.uppercase()} file…") {
@@ -391,7 +477,6 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
             withContext(Dispatchers.IO) {
                 app.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes); it.flush() } ?: kotlin.error("The chosen location could not be opened.")
             }
-            _state.update { it.copy(notice = "${format.extension.uppercase()} saved. Unsupported equations, if any, are kept as marked TeX text.") }
         }
     }
 
@@ -422,24 +507,34 @@ class AppViewModel(application: Application, private val saved: SavedStateHandle
         }
     }
 
-    private fun runTask(label: String, block: suspend () -> Unit) {
+    private fun runTask(label: String, provider: AiProvider? = null, block: suspend () -> Unit) {
         if (_state.value.busy) return
+        val generation = ++taskSerial
         _state.update { it.copy(busy = true, busyLabel = label, partial = "", error = null) }
         task = viewModelScope.launch {
             try { block() }
-            catch (_: CancellationException) { _state.update { it.copy(notice = "Task cancelled. Your saved note is unchanged.") } }
-            catch (e: OutOfMemoryError) { notifyError("The phone ran out of memory. Close other apps, use a tighter crop, and try again. Manual editing is available.") }
-            catch (e: Exception) { notifyError(e.message ?: "This task could not be completed.") }
-            finally { _state.update { it.copy(busy = false, busyLabel = "", partial = "") } }
+            catch (_: CancellationException) { }
+            catch (e: OutOfMemoryError) { if (generation == taskSerial) notifyError("The phone ran out of memory. Close other apps, use a tighter crop, and try again. Manual editing is available.") }
+            catch (e: Exception) {
+                if (generation == taskSerial) {
+                    if (provider == AiProvider.CHATGPT) { chatGpt.reportFailure(e); notifyError(chatGpt.state.value.status) }
+                    else notifyError(e.message ?: "This task could not be completed.")
+                }
+            }
+            finally { if (generation == taskSerial) _state.update { it.copy(busy = false, busyLabel = "", partial = "") } }
         }
     }
 
-    fun cancelTask() { ai.cancelGeneration(); task?.cancel() }
+    fun cancelTask() {
+        ++taskSerial
+        ai.cancelGeneration(); task?.cancel(); task = null
+        _state.update { it.copy(busy = false, busyLabel = "", partial = "") }
+    }
     fun dismissError() { _state.update { it.copy(error = null) } }
-    fun dismissNotice() { _state.update { it.copy(notice = null) } }
     private fun notifyError(message: String) { _state.update { it.copy(error = message) } }
 
     override fun onCleared() {
+        chatJob?.cancel(); chatGpt.cancelSignIn()
         ai.cancelDownload(); ai.cancelGeneration(); ai.close()
         saveQueue.close()
         super.onCleared()

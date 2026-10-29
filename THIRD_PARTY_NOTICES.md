@@ -11,6 +11,8 @@ The app includes these open-source components. Versions are pinned in the Gradle
 | mathml2omml 0.5.0 | LGPL-3.0-or-later | MathML to editable Office Math conversion |
 | @xmldom/xmldom 0.9.12 | MIT | Validate and normalize equation XML before Word export |
 | Manrope | SIL Open Font License 1.1 | Bundled offline interface typeface; license in app assets |
+| OkHttp 4.12.0 and Okio | Apache-2.0 | HTTPS requests, cancellation, and streamed ChatGPT responses |
+| Nimbus JOSE + JWT 10.10 | Apache-2.0 | OpenAI ID-token signature and claim verification |
 
 KaTeX and mathml2omml notices are packaged in `app/src/main/assets/licenses/`. The corresponding mathml2omml source, published build metadata, and license are supplied in `web/vendor-sources/mathml2omml/`, including the upstream source files used to produce the published package. The application's use of this library is in `web/src/preview.js`; rebuilding is documented in `web/build.mjs`, `web/package.json`, and the npm lock file.
 
@@ -21,3 +23,5 @@ Google ML Kit Text Recognition is distributed under [Google's ML Kit terms](http
 Gemma model weights are downloaded separately and are not included in the APK. The selected [Gemma 4 E2B deployment artifact](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) is marked Apache-2.0. The setup screen identifies this model and its source.
 
 Other transitive libraries retain their respective licenses; dependency metadata is available through `./gradlew :app:dependencies`.
+
+The Apache License 2.0 text for the Apache-licensed dependencies, including OkHttp/Okio and Nimbus JOSE + JWT, is included in `app/src/main/assets/licenses/Apache-2.0.txt`.

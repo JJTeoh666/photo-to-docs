@@ -55,7 +55,7 @@ data class ModelStatus(
 )
 
 /** All inference stays on this device. Networking is used only for the public model download. */
-class LocalAi(context: Context) {
+class LocalAi(context: Context) : DocumentAi {
     private val app = context.applicationContext
     private val modelDir = File(app.filesDir, "models").apply { mkdirs() }
     private val modelFile = File(modelDir, ModelArtifact.FILE_NAME)
@@ -235,7 +235,7 @@ class LocalAi(context: Context) {
         }
     }
 
-    suspend fun transcribe(image: File, ocrText: String, onPartial: (String) -> Unit = {}): String {
+    override suspend fun transcribe(image: File, ocrText: String, onPartial: (String) -> Unit): String {
         require(image.isFile && image.canRead()) { "The source photo is unavailable. Import it again." }
         val prompt = """
             Transcribe this photograph faithfully into an editable document. Do not solve, explain, or rewrite the content.
@@ -251,7 +251,7 @@ class LocalAi(context: Context) {
         return generate(Contents.of(Content.ImageFile(image.absolutePath), Content.Text(prompt)), true, onPartial)
     }
 
-    suspend fun revise(source: String, instruction: String, onPartial: (String) -> Unit = {}): String {
+    override suspend fun revise(source: String, instruction: String, onPartial: (String) -> Unit): String {
         AiDocumentText.checkRevisionInput(source, instruction)
         val prompt = """
             Apply the user's editing request to the document below. Return the whole revised supplied document only.
@@ -481,6 +481,10 @@ class LocalAi(context: Context) {
     }
 
     private fun checkOpen() = check(!closed.get()) { "Local AI has been closed." }
+
+    suspend fun unloadEngine() = withContext(owner) {
+        operations.withLock { if (!closed.get()) releaseEngine() }
+    }
 
     fun close() {
         if (!closed.compareAndSet(false, true)) return

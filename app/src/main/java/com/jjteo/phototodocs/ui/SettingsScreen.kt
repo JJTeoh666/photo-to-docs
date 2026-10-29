@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.jjteo.phototodocs.R
 import com.jjteo.phototodocs.ai.ModelStatus
+import com.jjteo.phototodocs.ai.AiProvider
 import com.jjteo.phototodocs.data.ThemeMode
 import com.jjteo.phototodocs.updates.UpdateUiState
 import java.util.Locale
@@ -25,6 +26,7 @@ internal fun SettingsScreen(
     model: ModelStatus, updates: UpdateUiState, onCheckUpdates: () -> Unit, onOpenUpdates: () -> Unit,
     onBack: () -> Unit, onDownload: () -> Unit,
     onCancelDownload: () -> Unit, onDelete: () -> Unit, onImport: () -> Unit,
+    provider: AiProvider = AiProvider.LOCAL, aiSettings: @Composable () -> Unit = {},
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     var details by rememberSaveable { mutableStateOf(false) }
@@ -39,6 +41,7 @@ internal fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 AppearanceCard(themeMode, onThemeModeChange)
+                aiSettings()
                 UpdatesCard(updates, onCheckUpdates, onOpenUpdates)
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Local AI", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
@@ -82,8 +85,9 @@ internal fun SettingsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     AppIcon(R.drawable.ic_lock, tint = MaterialTheme.colorScheme.secondary)
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Your work stays here", style = MaterialTheme.typography.titleMedium)
-                        Text("Photos, notes, and AI edits are processed on your phone. After the model download, AI works offline.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (provider == AiProvider.LOCAL) "Your work stays here" else "You choose where AI runs", style = MaterialTheme.typography.titleMedium)
+                        Text(if (provider == AiProvider.LOCAL) "Local AI processes photos and edits on your phone. ChatGPT is optional and only receives content when you select it and send an AI request."
+                            else "ChatGPT receives the photos and text you submit for AI processing. Saved notes, basic text recognition, previews, and exports stay on this phone.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Column {

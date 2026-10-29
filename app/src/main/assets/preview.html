@@ -17,6 +17,19 @@
     .math-error { color:var(--warning); background:var(--warning-bg); border:1px solid var(--warning); border-radius:6px; padding:4px 6px; white-space:pre-wrap; font-family:monospace; }
     .empty {color:var(--muted)} table {border-collapse:collapse; margin:1em 0; width:100%} th,td {border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top} th{background:var(--soft)}
     ul,ol {padding-left:1.6em} li {margin:.25em 0}
+    body.pdf-export { padding:0; font:12pt/1.5 Georgia, 'Noto Serif', serif; color:#182238; background:#fff; }
+    body.pdf-export main { max-width:none; }
+    body.pdf-export .equation .katex-html { display:inline-block; }
+    body.pdf-export .pdf-title { font-size:22pt; margin:0 0 18pt; }
+    @media print {
+      :root { --sheet:#fff; --ink:#182238; --muted:#536078; --line:#bbc5d4; --soft:#f0f3f8; }
+      body { padding:0; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+      h1,h2,h3,h4,h5,h6 { break-after:avoid; }
+      p,li { orphans:3; widows:3; }
+      .equation,tr { break-inside:avoid; }
+      .equation { overflow:visible; }
+      thead { display:table-header-group; }
+    }
   </style>
   <script defer src="preview.js"></script>
 </head>

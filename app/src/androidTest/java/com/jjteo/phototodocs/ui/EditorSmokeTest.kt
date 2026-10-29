@@ -1,5 +1,7 @@
 package com.jjteo.phototodocs.ui
 
+import androidx.compose.ui.test.performScrollTo
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
@@ -114,9 +116,9 @@ class EditorSmokeTest {
         compose.waitUntil(15_000) { !viewModel().state.value.loading }
         compose.runOnIdle { viewModel().closeDocument() }
         compose.onNodeWithText("Settings").performClick()
-        compose.onNodeWithText("App updates").assertIsDisplayed()
-        compose.onNodeWithText("Installed version ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
-        compose.onNodeWithTag("check-updates-button").assertIsDisplayed()
+        compose.onNodeWithText("App updates").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Installed version ${BuildConfig.VERSION_NAME}").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("check-updates-button").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
     }
 
@@ -162,13 +164,13 @@ class EditorSmokeTest {
         val source = "A note I can edit without AI."
         compose.onNodeWithTag("document-source").performTextReplacement(source)
         compose.onNodeWithTag("ai-edit").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Set up local AI in Settings to suggest changes.").assertIsDisplayed()
+        compose.onNodeWithText("Set up local AI or connect ChatGPT in Settings to suggest changes.").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
 
         // Exercise the ViewModel's defensive guard as well as the UI's setup route.
         compose.runOnIdle { viewModel().requestEdit("Improve the writing") }
         compose.onNodeWithText("Something needs attention").assertIsDisplayed()
-        compose.onNodeWithText("Download or import the local model in Local AI setup first.").assertIsDisplayed()
+        compose.onNodeWithText("Download or import the local model in Local AI setup first. Basic printed-text extraction is available immediately.").assertIsDisplayed()
         compose.onNodeWithText("OK").performClick()
         compose.onNodeWithTag("document-source").assertTextEquals(source)
         val revised = "$source Still fully editable."

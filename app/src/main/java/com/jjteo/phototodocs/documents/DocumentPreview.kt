@@ -147,7 +147,7 @@ private class PreviewWebView(context: Context) : WebView(context) {
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-private fun configureOffline(view: WebView) {
+internal fun configureOffline(view: WebView) {
     view.settings.apply {
         javaScriptEnabled = true
         allowFileAccess = false
@@ -160,13 +160,13 @@ private fun configureOffline(view: WebView) {
     view.setBackgroundColor(android.graphics.Color.WHITE)
 }
 
-private fun assetLoader(context: Context) = WebViewAssetLoader.Builder()
+internal fun assetLoader(context: Context) = WebViewAssetLoader.Builder()
     .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
     .build()
 
-private fun blockedResponse() = WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", emptyMap(), "".byteInputStream())
+internal fun blockedResponse() = WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", emptyMap(), "".byteInputStream())
 
-private fun previewPayload(source: String): String {
+internal fun previewPayload(source: String): String {
     fun tokens(text: String): JSONArray = JSONArray().apply {
         NoteParser.inlines(text).forEach { token ->
             put(JSONObject().put("text", token.text).put("math", token.math).put("bold", token.bold).put("italic", token.italic))
@@ -187,4 +187,4 @@ private fun previewPayload(source: String): String {
     }.toString()
 }
 
-private const val ASSET_URL = "https://appassets.androidplatform.net/assets/preview.html"
+internal const val ASSET_URL = "https://appassets.androidplatform.net/assets/preview.html"

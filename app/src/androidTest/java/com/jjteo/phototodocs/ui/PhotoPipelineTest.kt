@@ -82,7 +82,7 @@ class PhotoPipelineTest {
                 assertNull(model.state.value.error)
             }
             assertEquals(960 to 720, dimensions(model.state.value.current!!.pages.single().path))
-            scenario.onActivity { model.dismissNotice(); model.transcribePage(imported.id, basicOnly = true) }
+            scenario.onActivity { model.transcribePage(imported.id, basicOnly = true) }
             waitFor("bundled ML Kit transcription", 60_000) {
                 !model.state.value.busy && (model.state.value.proposal != null || model.state.value.error != null)
             }

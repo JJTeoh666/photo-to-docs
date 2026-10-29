@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -44,6 +45,7 @@ import com.jjteo.phototodocs.R
 import com.jjteo.phototodocs.AppViewModel
 import com.jjteo.phototodocs.ExportFormat
 import com.jjteo.phototodocs.ai.ModelStatus
+import com.jjteo.phototodocs.ai.AiProvider
 import com.jjteo.phototodocs.data.NoteDocument
 import com.jjteo.phototodocs.data.PhotoFiles
 import com.jjteo.phototodocs.data.PhotoPage
@@ -74,13 +76,6 @@ fun PhotoToDocsApp(vm: AppViewModel) {
     }
     val modelImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importModel(uri)
-    }
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(state.notice) {
-        state.notice?.let {
-            snackbar.showSnackbar(it, actionLabel = "Dismiss", duration = SnackbarDuration.Long)
-            vm.dismissNotice()
-        }
     }
     val cameraAction: () -> Unit = {
         runCatching {
@@ -113,24 +108,28 @@ fun PhotoToDocsApp(vm: AppViewModel) {
                         onDownload = vm::downloadModel,
                         onCancelDownload = vm::cancelModelDownload,
                         onDelete = vm::deleteModel,
-                        onImport = { modelImport.launch(arrayOf("*/*")) }
+                        onImport = { modelImport.launch(arrayOf("*/*")) },
+                        provider = state.aiProvider,
+                        aiSettings = { ChatGptSettings(vm, state.aiProvider, state.chatGpt) },
                     )
                     state.current == null -> LibraryScreen(
                         documents = state.documents, loading = state.loading,
                         onNew = vm::createDocument, onOpen = vm::openDocument,
                         onDelete = vm::deleteDocument, onCamera = cameraAction,
                         onGallery = galleryAction, onSettings = { settings = true },
-                        model = state.model
+                        model = state.model,
+                        aiLabel = if (state.aiProvider == AiProvider.CHATGPT) "ChatGPT is selected" else null,
+                        aiDetail = if (state.aiProvider == AiProvider.CHATGPT) if (state.aiReady) "AI requests use your ChatGPT plan and internet." else "Connect your account and choose a model in Settings." else null,
                     )
                     else -> DocumentScreen(
                         document = state.current!!, vm = vm, busy = state.busy,
                         model = state.model, onCamera = cameraAction,
-                        onGallery = galleryAction, onSettings = { settings = true }
+                        onGallery = galleryAction, onSettings = { settings = true },
+                        aiReady = state.aiReady, aiDisclosure = state.aiDisclosure,
                     )
                     }
                 }
             }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(16.dp))
         }
         BackHandler(settings || state.current != null) {
             if (settings) settings = false else vm.closeDocument()
@@ -169,7 +168,8 @@ fun PhotoToDocsApp(vm: AppViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 private fun DocumentScreen(
     document: NoteDocument, vm: AppViewModel, busy: Boolean, model: ModelStatus,
-    onCamera: () -> Unit, onGallery: () -> Unit, onSettings: () -> Unit
+    onCamera: () -> Unit, onGallery: () -> Unit, onSettings: () -> Unit,
+    aiReady: Boolean, aiDisclosure: String,
 ) {
     var tab by rememberSaveable(document.id) { mutableStateOf(if (document.pages.isNotEmpty() && document.source.isBlank()) 2 else 0) }
     var field by remember(document.id) { mutableStateOf(TextFieldValue(document.source)) }
@@ -177,6 +177,7 @@ private fun DocumentScreen(
     var showAi by remember { mutableStateOf(false) }
     var instruction by rememberSaveable { mutableStateOf("") }
     var exportMenu by remember { mutableStateOf(false) }
+    val activity = LocalActivity.current
     val wordSave = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri -> if (uri != null) vm.export(ExportFormat.WORD, uri) }
     val texSave = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-tex")) { uri -> if (uri != null) vm.export(ExportFormat.LATEX, uri) }
     LaunchedEffect(document.revision) {
@@ -241,6 +242,7 @@ private fun DocumentScreen(
                             Text("Export")
                         }
                         DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
+                            DropdownMenuItem(text = { Text("Save PDF (.pdf)") }, onClick = { exportMenu = false; activity?.let(vm::exportPdf) }, enabled = !busy && activity != null)
                             DropdownMenuItem(text = { Text("Save Word (.docx)") }, onClick = { exportMenu = false; wordSave.launch(safeName(document.title) + ".docx") }, enabled = !busy)
                             DropdownMenuItem(text = { Text("Save LaTeX (.tex)") }, onClick = { exportMenu = false; texSave.launch(safeName(document.title) + ".tex") }, enabled = !busy)
                             HorizontalDivider()
@@ -314,7 +316,7 @@ private fun DocumentScreen(
                         PreviewAiAction(onClick = { showAi = true }, enabled = !busy,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp).testTag("ai-edit-preview"))
                     }
-                    2 -> PhotosPanel(document.pages, vm, busy, model.installed, onCamera, onGallery, onSettings, Modifier.weight(1f))
+                    2 -> PhotosPanel(document.pages, vm, busy, aiReady, onCamera, onGallery, onSettings, Modifier.weight(1f), aiDisclosure)
                 }
             }
         }
@@ -329,20 +331,21 @@ private fun DocumentScreen(
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(if (field.selection.collapsed) "Revise the whole document." else "Revise the selected text.", color = Muted)
                     Text("AI suggests changes for you to review.", style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 4.dp))
+                    Text(aiDisclosure, style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 8.dp))
                     OutlinedTextField(instruction, { instruction = it }, label = { Text("What should AI change?") }, placeholder = { Text("Clean up the formatting and keep the meaning.") }, minLines = 3, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
                     TextButton(onClick = { instruction = "Fix spelling and improve clarity. Preserve every fact, number, and equation." }) { Text("Improve writing") }
                     TextButton(onClick = { instruction = "Format the equations as valid LaTeX. Preserve their mathematical meaning and all surrounding text." }) { Text("Format equations") }
-                    if (!model.installed) Text("Set up local AI in Settings to suggest changes.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    if (!aiReady) Text("Set up local AI or connect ChatGPT in Settings to suggest changes.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
-                if (model.installed) Button(enabled = instruction.isNotBlank() && !busy, onClick = {
+                if (aiReady) Button(enabled = instruction.isNotBlank() && !busy, onClick = {
                     val start = if (field.selection.collapsed) 0 else field.selection.min
                     val end = if (field.selection.collapsed) -1 else field.selection.max
                     showAi = false
                     vm.requestEdit(instruction.trim(), start, end)
                 }) { Text("Suggest changes") }
-                else Button(onClick = { showAi = false; onSettings() }) { Text("Set up local AI") }
+                else Button(onClick = { showAi = false; onSettings() }) { Text("Set up AI") }
             },
             dismissButton = { TextButton(onClick = { showAi = false }) { Text("Cancel") } }
         )
@@ -352,7 +355,8 @@ private fun DocumentScreen(
 @Composable
 private fun PhotosPanel(
     pages: List<PhotoPage>, vm: AppViewModel, busy: Boolean, installed: Boolean,
-    onCamera: () -> Unit, onGallery: () -> Unit, onSettings: () -> Unit, modifier: Modifier
+    onCamera: () -> Unit, onGallery: () -> Unit, onSettings: () -> Unit, modifier: Modifier,
+    aiDisclosure: String,
 ) {
     var cropping by remember { mutableStateOf<PhotoPage?>(null) }
     var removing by remember { mutableStateOf<PhotoPage?>(null) }
@@ -374,6 +378,7 @@ private fun PhotosPanel(
             Column {
                 Text("Transcribe your photos", style = MaterialTheme.typography.titleMedium)
                 Text("Transcriptions are drafts. Check symbols and numbers against the photo.", style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 4.dp))
+                Text(aiDisclosure, style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 4.dp))
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Button(onClick = { if (installed) vm.transcribeAll(false) else onSettings() }, enabled = !busy) { Text("AI: all pages") }
                     TextButton(onClick = { vm.transcribeAll(true) }, enabled = !busy) { Text("Basic text: all") }

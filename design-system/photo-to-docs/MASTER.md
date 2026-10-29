@@ -35,3 +35,7 @@ Document rows           Photo actions in tab
 Editor keeps AI separate from tabs. Below 480dp of height (680dp with enlarged text), collapse secondary chrome and expose formatting through a reachable toolbar toggle. Below 280dp of available height, move views and formatting into a top-bar menu to preserve typing room. Below 160dp with the keyboard visible, focus on source text alone until the keyboard is hidden. Never claim a completed save from a timer; say “Saves automatically.”
 
 Native outline vectors share 24-unit geometry and 2-unit strokes. Decorative icons have no descriptions; standalone actions do. Tabs use native selected semantics. Respect system light/dark, safe areas, reduced animation scales and font sizes. No custom automatic animation is needed.
+
+## AI connection controls
+
+Settings keeps the selected Ocean/Graphite tokens. Use native radio semantics for Local AI / ChatGPT; persist an explicit provider choice. Connecting an account does not select cloud processing. Show where submitted content goes beside AI requests. The ChatGPT card uses Continue with ChatGPT, account/model selection, Test connection, Manage usage, and Disconnect. A connected identity alone is not described as verified access. Show a successful model/time only after completed inference. Errors distinguish permissions, eligibility, usage caps, and temporary network failure. Local OCR/editing/exports remain reachable without sign-in.

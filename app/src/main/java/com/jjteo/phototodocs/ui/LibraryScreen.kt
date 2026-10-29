@@ -29,6 +29,7 @@ internal fun LibraryScreen(
     documents: List<NoteDocument>, loading: Boolean, model: ModelStatus,
     onNew: () -> Unit, onOpen: (String) -> Unit, onDelete: (String) -> Unit,
     onCamera: () -> Unit, onGallery: () -> Unit, onSettings: () -> Unit,
+    aiLabel: String? = null, aiDetail: String? = null,
 ) {
     var deleting by remember { mutableStateOf<NoteDocument?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -68,8 +69,8 @@ internal fun LibraryScreen(
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AppIcon(R.drawable.ic_lock)
                         Column(Modifier.weight(1f)) {
-                            Text(if (model.installed) "Local AI is installed" else "Text recognition is ready", style = MaterialTheme.typography.titleSmall)
-                            Text(if (model.installed) "Photos and notes stay on your phone." else "Add local AI for equations and editing.", style = MaterialTheme.typography.bodySmall)
+                            Text(aiLabel ?: if (model.installed) "Local AI is installed" else "Text recognition is ready", style = MaterialTheme.typography.titleSmall)
+                            Text(aiDetail ?: if (model.installed) "Photos and notes stay on your phone." else "Choose local AI or ChatGPT for equations and editing.", style = MaterialTheme.typography.bodySmall)
                         }
                         AppIcon(R.drawable.ic_chevron_right)
                     }

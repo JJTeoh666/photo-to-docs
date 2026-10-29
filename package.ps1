@@ -30,13 +30,13 @@ try {
 
 $examples = Join-Path $dist 'examples'
 New-Item -ItemType Directory -Force -Path $examples | Out-Null
-foreach ($name in @('sample.docx','sample.tex','sample-source.md')) {
+foreach ($name in @('sample.pdf','sample.docx','sample.tex','sample-source.md','sample-pdf-source.md')) {
     $file = Join-Path $PSScriptRoot "verification\$name"
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $examples }
 }
 $screenshots = Join-Path $dist 'screenshots'
 New-Item -ItemType Directory -Force -Path $screenshots | Out-Null
-foreach ($name in @('library.png','editor.png','preview.png','settings.png','library-ocean.png','library-graphite.png','settings-ocean.png','settings-graphite.png','preview-graphite.png')) {
+foreach ($name in @('library.png','editor.png','preview.png','settings.png','library-ocean.png','library-graphite.png','settings-ocean.png','settings-graphite.png','preview-graphite.png','oauth-settings-ocean.png','oauth-settings-graphite.png','oauth-browser-start.png')) {
     $file = Join-Path $PSScriptRoot "verification\$name"
     if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $screenshots }
 }
